@@ -1,4 +1,5 @@
 import streamlit as st
+import os
 from openai import OpenAI
 
 st.set_page_config(page_title="EduBot 🤖", page_icon="📚", layout="centered")
@@ -6,7 +7,8 @@ st.set_page_config(page_title="EduBot 🤖", page_icon="📚", layout="centered"
 st.title("💬 EducationBot")
 st.caption("Your personal AI study buddy — ask me anything!")
 
-client = OpenAI(api_key="your_api_key_here")
+# ✅ Securely load API key from Streamlit secrets
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # Chat state
 if "messages" not in st.session_state:
@@ -26,9 +28,10 @@ if prompt := st.chat_input("Ask me something..."):
     # Generate AI reply
     with st.chat_message("assistant"):
         stream = client.chat.completions.create(
-            model="gpt-5",
+            model="gpt-4o-mini",  # change to a model you actually have access to!
             messages=st.session_state.messages,
             stream=True,
         )
         response = st.write_stream(stream)
+
     st.session_state.messages.append({"role": "assistant", "content": response})
