@@ -1,38 +1,60 @@
 import streamlit as st
-from openai import OpenAI
+from openai import OpenAI, RateLimitError, AuthenticationError, APIError
+import time
 
+# ------------------ PAGE CONFIG ------------------
 st.set_page_config(page_title="EduBot 🤖", page_icon="📚", layout="centered")
 
 st.title("💬 EducationBot")
 st.caption("Your personal AI study buddy — ask me anything!")
 
-# ✅ Load API key from Streamlit secrets
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+# ------------------ OPENAI SETUP ------------------
+try:
+    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])  # from Streamlit Cloud secrets
+except Exception:
+    st.error("❌ Missing API key! Please add it to Streamlit secrets as `OPENAI_API_KEY`.")
+    st.stop()
 
-# Initialize chat state
+# ------------------ SESSION STATE ------------------
 if "messages" not in st.session_state:
     st.session_state["messages"] = [
         {"role": "system", "content": "You are EduBot, a friendly AI tutor for students."}
     ]
 
-# Display previous messages
+# Display chat history
 for msg in st.session_state.messages:
     if msg["role"] != "system":
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-# User input + AI response
+# ------------------ CHAT INPUT + RESPONSE ------------------
 if prompt := st.chat_input("Ask me something..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    with st.chat_message("assistant"):
-        stream = client.chat.completions.create(
-            model="gpt-4o-mini",  # ✅ use this model instead of gpt-5
-            messages=st.session_state.messages,
-            stream=True,
-        )
-        response = st.write_stream(stream)
+    try:
+        with st.chat_message("assistant"):
+            stream = client.chat.completions.create(
+                model="gpt-4o-mini",  # stable + low-cost
+                messages=st.session_state.messages,
+                stream=True,
+            )
+            response = st.write_stream(stream)
 
-    st.session_state.messages.append({"role": "assistant", "content": response})
+        # Save AI response
+        st.session_state.messages.append({"role": "assistant", "content": response})
+
+    # ------------------ ERROR HANDLING ------------------
+    except RateLimitError:
+        st.error("⚠️ Too many requests! Please wait a few seconds and try again.")
+        time.sleep(2)
+
+    except AuthenticationError:
+        st.error("🚫 Invalid API key! Please check your `OPENAI_API_KEY` in secrets.")
+
+    except APIError as e:
+        st.error(f"💥 OpenAI API error: {str(e)}")
+
+    except Exception as e:
+        st.error(f"❗ Unexpected error: {str(e)}")
